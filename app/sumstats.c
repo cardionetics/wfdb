@@ -34,7 +34,7 @@ graphs" (ANSI/AAMI EC38:1998).  These standards are available from AAMI,
 #include <wfdb/wfdb.h>
 
 static int nrec, Nrec, Vrec, Frec;
-static int NQS, NQP, NVS, NVP, NVF, NSVS, NSVP, NRRE;
+static int NQS, NQP, NVS, NVP, NVF, NSVS, NSVP, NSVF, NRRE;
 static long Nn, Ns, Nv, No, Nx,
 	    Sn, Ss, Sv, So, Sx,
 	    Vn, Vs, Vv, Vo, Vx,
@@ -43,11 +43,12 @@ static long Nn, Ns, Nv, No, Nx,
 	    On, Os, Ov;
 static long QTP, QFN, QFP, ST;
 static long CTS, CFN, CTP, CFP, STS, SFN, STP, SFP, LTS, LFN, LTP, LFP;
+static long VFN, VFP, VTN, SFP, STN;
 static long ETS, EFN, ETP, EFP;
 static long NCS, NCP, NSS, NSP, NLS, NLP, NES, NEP, NDS, NDP;
 static long NT, VT, FT, QT;
 static long detected_episode_length, overlap, total_episode_length;
-static double CQS, CQP, CVS, CVP, CVF, CSVS, CSVP, CRRE, CBM, CNM, CVM, CFM;
+static double CQS, CQP, CVS, CVP, CVF, CSVS, CSVP, CSVF, CRRE, CBM, CNM, CVM, CFM;
 static double CCS, CCP, CSS, CSP, CLS, CLP, CES, CEP, CDS, CDP, CERR, CMREF;
 char *pname;		/* name by which this program was invoked */
 
@@ -60,7 +61,7 @@ static char s2[] =
 static char s3[] =
  "Record CTs CFN CTp CFP STs SFN STp SFP LTs LFN LTp LFP  CSe C+P SSe S+P LSe L+P\n";
 static char s4[] =
- "Record Nn' Sn' Vn' Fn' On'  Ns  Ss  Vs  Fs' Os' Nv  Sv   Vv  Fv' Ov' No' So' Vo' Fo'  Q Se   Q +P   V Se   V +P   S Se   S +P RR err\n";
+ "Record Nn' Sn' Vn' Fn' On'  Ns  Ss  Vs  Fs' Os' Nv  Sv   Vv  Fv' Ov' No' So' Vo' Fo'  Q Se   Q +P   V Se   V +P  V FPR  S Se   S +P S FPR RR err\n";
 static char s5[] =
  "Record Nx   Sx   Vx   Fx   Qx  % beats  % N    % S    % V    % F   Total Shutdown\n";
 static char s6[] = "(SVE run detection)\n";
@@ -223,9 +224,23 @@ char *argv[];
 	QTP = Nn+Ns+Nv+Sn+Ss+Sv+Vn+Vs+Vv+Fn+Fs+Fv;
 	QFN = No+So+Vo+Fo;
 	QFP = On+Os+Ov;
+
+	VFN = Vn + Vs + Vo + Vx;
+	VFP = Nv + Sv + Ov;
+	VTN = Nn + Ns +
+	      Sn + Ss +
+	      Fn + Fs +
+	      On + Os;
+
+	SFP = Ns + Vs + Fs + Os;
+	STN = Nn + Nv +
+	      Vn + Vv +
+	      Fn + Fv +
+	      On + Ov;
+
 	(void)printf("______________________________________________________");
 	(void)printf("______________________________________________________");
-	(void)printf("________________________\n");
+	(void)printf("______________________________________\n");
 	(void)printf("Sum %6ld %3ld %3ld %3ld %3ld", Nn, Sn, Vn, Fn, On);
 	(void)printf(" %3ld %3ld %3ld %3ld %3ld", Ns, Ss, Vs, Fs, Os);
 	(void)printf(" %3ld %3ld %4ld %3ld %3ld", Nv, Sv, Vv, Fv, Ov);
@@ -236,16 +251,20 @@ char *argv[];
 	pstat(" %6.2f", (double)QTP, (double)(QTP+QFP));
 	pstat(" %6.2f", (double)Vv, (double)(Vn+Vs+Vv+Vo));
 	pstat(" %6.2f", (double)Vv, (double)(Nv+Sv+Vv+Ov));
+	pstat(" %6.2f", (double)VFP, (double)(VTN+VFP));
 	pstat(" %6.2f", (double)Ss, (double)(Sn+Ss+Sv+So));
 	pstat(" %6.2f", (double)Ss, (double)(Ns+Ss+Vs+Os));
+	pstat(" %6.2f", (double)SFP, (double)(STN+SFP));
 	(void)printf("\nAverage                                             ");
 	(void)printf("                               ");
 	pstat(" %6.2f", CQS, (double)NQS);
 	pstat(" %6.2f", CQP, (double)NQP);
 	pstat(" %6.2f", CVS, (double)NVS);
 	pstat(" %6.2f", CVP, (double)NVP);
+	pstat(" %6.2f", CVF, (double)NVF);
 	pstat(" %6.2f", CSVS, (double)NSVS);
 	pstat(" %6.2f", CSVP, (double)NSVP);
+	pstat(" %6.2f", CSVF, (double)NSVF);
 	pstat(" %6.2f", CRRE/100.0, (double)NRRE);
 	(void)printf(
 	     "\nTotal QRS complexes: %ld  Total VEBs: %ld  Total SVEBs: %ld\n",
@@ -296,7 +315,10 @@ int type;
 char *s;
 {
     static char rec[10], mb[8], mn[8], ms[8], mv[8], mf[8], mds[8], mdp[8];
-    static char qse[8], qpp[8], vse[8], vpp[8], sse[8], spp[8], srre[8];
+    static char qse[8], qpp[8];
+    static char vse[8], vpp[8], vfpr[8];
+    static char sse[8], spp[8], sfpr[8];
+    static char srre[8];
     static char rts[20], tts[20];
     static double rre, ds, dp, err, mref;
     static int cts, cfn, ctp, cfp, sts, sfn, stp, sfp, lts, lfn, ltp, lfp;
@@ -393,10 +415,10 @@ char *s;
       case 4:	/* bxb -L beat-by-beat report */
 	fo = -1L;
 	(void)sscanf(s,
- "%s%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%s%s%s%s%s%s%s",
+ "%s%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%s%s%s%s%s%s%s%s%s",
 	       rec, &nn, &sn, &vn, &fn, &on, &ns, &ss, &vs, &fs, &os,
 			  &nv, &sv, &vv, &fv, &ov, &no, &so, &vo, &fo,
-				  qse, qpp, vse, vpp, sse, spp, srre);
+				  qse, qpp, vse, vpp, vfpr, sse, spp, sfpr, srre);
 	if (fo < 0L) return (0);
 	Nn += nn; Sn += sn; Vn += vn; Fn += fn; On += on;
 	Ns += ns; Ss += ss; Vs += vs; Fs += fs; Os += os;
@@ -420,6 +442,10 @@ char *s;
 	    CVP += vv/(double)(nv+sv+vv+ov);
 	    NVP++;
 	}
+	if (nn+ns+sn+ss+fn+fs+on+os + nv+sv+ov) {
+	    CVF += (nv+sv+ov)/(double)(nn+ns+sn+ss+fn+fs+on+os + nv+sv+ov);
+	    NVF++;
+	}
 	if (sn+ss+sv+so) {
 	    CSVS += ss/(double)(sn+ss+sv+so);
 	    NSVS++;
@@ -427,6 +453,10 @@ char *s;
 	if (ns+ss+vs+os) {
 	    CSVP += ss/(double)(ns+ss+vs+os);
 	    NSVP++;
+	}
+	if (ns+vs+fs+os) {
+	    CSVF += (ns+vs+fs+os)/(double)(ns+vs+fs+os + nn+nv+vn+vv+fn+fv+on+ov);
+	    NSVF++;
 	}
 	rre = -1.0;
 	(void)sscanf(srre, "%lf", &rre);

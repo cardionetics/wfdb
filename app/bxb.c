@@ -850,7 +850,7 @@ char *argv[];
 void print_results(fflag)
 int fflag;
 {
-    long QTP, QFN, QFP, STP, SFN, SFP, VTP, VFN, VTN, VFP;
+    long QTP, QFN, QFP, STP, SFN, STN, SFP, VTP, VFN, VTN, VFP;
 
     /* Open output files.  If line-format output was selected, write column
        headings only if the files must be created from scratch. */
@@ -872,7 +872,7 @@ int fflag;
 		(void)fprintf(ofile,
 			      " Os' Nv  Sv   Vv  Fv' Ov' No' So' Vo' Fo'");
 		(void)fprintf(ofile,
-		      "  Q Se   Q +P   V Se   V +P   S Se   S +P RR err\n");
+		      "  Q Se   Q +P   V Se   V +P  V FPR  S Se   S +P S FPR RR err\n");
 	    }
 	}
 	else {
@@ -1040,15 +1040,22 @@ int fflag;
     STP = Ss;
     SFN = Sn + Sv + Sf + Sq + So + Sx;
     SFP = Ns + Vs + Fs + Os + Xs;
+    STN = Nn + Nv + Nf + Nq +
+          Vn + Vv + Vf + Vq +
+          Fn + Fv + Ff + Fq +
+          Qn + Qv + Qf + Qq +
+          On + Ov + Of + Oq +
+          Xn + Xv + Xf + Xq;
+
     pstat("           QRS sensitivity", "%6.2f", QTP, QTP + QFN);
     pstat(" QRS positive predictivity", "%6.2f", QTP, QTP + QFP);
     pstat("           VEB sensitivity", "%6.2f", VTP, VTP + VFN);
     pstat(" VEB positive predictivity", "%6.2f", VTP, VTP + VFP);
-    if (fflag < 4)
-	pstat("   VEB false positive rate", "%6.3f", VFP, VTN + VFP);
-    else {
+    pstat("   VEB false positive rate", "%6.3f", VFP, VTN + VFP);
+    if (fflag >= 4) {
 	pstat("          SVEB sensitivity", "%6.2f", STP, STP + SFN);
 	pstat("SVEB positive predictivity", "%6.2f", STP, STP + SFP);
+	pstat("  SVEB false positive rate", "%6.3f", SFP, STN + SFP);
     }
     if (fflag == 4 || fflag == 6) {
 	(void)fprintf(ofile, "     RMS RR interval error: ");
